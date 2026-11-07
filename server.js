@@ -12,12 +12,14 @@ let players = {};
 
 // TRAGE HIER DEINE VORGEGEBENEN BEGRIFFE EIN (Mindestens 24 Stück!)
 const vorgegebeneBegriffe = [
-    "Synergien", "Agil", "Könnt ihr mich hören?", "No-Brainer", "Disruption", 
-    "Deep Dive", "Am Ende des Tages", "Auf dem Schirm", "KPIs", "Low-Hanging Fruits", 
-    "Mindset", "New Work", "Micro stumm!", "Customer Journey", "Benchmark", 
-    "Quick Win", "Clustern", "Offline besprechen", "Outside the box", "Next Steps",
-    "Fokus", "Mehrwert", "Win-Win", "Stakeholder", "Pipeline", "Skalieren", 
-    "Bottleneck", "Best Practice", "Framework", "Deliverables"
+    "VU aus Verfolgung", "VU aus Dummheit", "FD Eigenunfall", "PD Eigenunfall", "Disruption",
+    "VPD baut scheiße", "Faye sauer auf VPD", "Frostie sauer auf VPD", "Faye ist sauer", "Frostie ist sauer",
+    "Issi ist sauer", "Sturz aus Dummheit", "Einsatz anders als Dispatch", "MANV Vorarlarm", "MANV Schlägerei",
+    "Fake Cop Ankündigung", "Dauerhaft bewusstlos", "Liberty Schlägerei", "Fahrzeug verschwindet auf MANV", "Next Steps",
+    "Leitstellentelefon ohne Antwort", "Einheit antwortet nicht im Funk", "CMC antwortet nicht im Funk", "Bernards antwortet nicht im Funk", "Pipeline", "Skalieren",
+    "Bernards fordert Abtransport", "CMC vor 22 Uhr im Feierabend", "Mindestbesatzung zwischen 18 und 22 Uhr", "Storno",
+    "Ortskunde", "Falscher Funk gefunkt", "Patient streitet mit PD", "Alkoholintox",
+    "Falsches Fahrzeug", "Status vergessen", "Funkgerät ausgeschalten", "EMS wird überfallen"
 ];
 
 function generateIndividualCard() {
