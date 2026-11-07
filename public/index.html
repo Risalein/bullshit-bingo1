@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Daily Multiplayer Bullshit Bingo</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e222b; color: #f5f5f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #fbc02d; margin-bottom: 5px; font-size: 2.2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        h2, h3 { color: #fff; }
+        p.subtitle { color: #aaaaaa; margin-top: 0; margin-bottom: 25px; }
+        .screen { background: #282c34; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 700px; width: 100%; box-sizing: border-box; margin-bottom: 20px; border-top: 4px solid #fbc02d; }
+        .hidden { display: none !important; }
+        label { font-weight: bold; color: #fbc02d; display: block; margin-bottom: 5px; }
+        input, textarea { width: 100%; padding: 12px; margin: 5px 0 20px 0; border: 2px solid #3f4451; background: #1e222b; color: #fff; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        input:focus, textarea:focus { border-color: #fbc02d; outline: none; }
+        textarea { height: 80px; resize: vertical; }
+        button { width: 100%; padding: 14px; background: #fbc02d; color: #1e222b; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease; }
+        button:hover { background: #fdd835; transform: translateY(-1px); }
+        .game-container { display: flex; gap: 30px; max-width: 1200px; width: 100%; align-items: flex-start; justify-content: center; }
+        .main-stage { flex: 2; min-width: 320px; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 15px; }
+        .cell { aspect-ratio: 1; background: #282c34; border: 2px solid #3f4451; color: #eee; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 600; font-size: 0.8rem; padding: 6px; cursor: pointer; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.15s ease; word-break: break-word; }
+        .cell:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); border-color: #fbc02d; }
+        .cell.marked { background: #fbc02d; color: #1e222b; border-color: #fbc02d; font-weight: bold; }
+        .cell.free { background: #4f5b66; color: #fff; cursor: default; border-color: #4f5b66; }
+        .sidebar { flex: 1; min-width: 250px; background: #282c34; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 4px solid #5f6368; }
+        .player-preview-card { margin-bottom: 20px; border-bottom: 1px solid #3f4451; padding-bottom: 15px; }
+        .player-preview-card:last-child { border: none; }
+        .player-name { font-weight: bold; margin-bottom: 8px; color: #fbc02d; display: flex; align-items: center; gap: 6px; }
+        .mini-grid { display: grid; grid-template-columns: repeat(5, 16px); gap: 3px; }
+        .mini-cell { width: 16px; height: 16px; background: #1e222b; border-radius: 3px; border: 1px solid #3f4451; }
+        .mini-cell.marked { background: #fbc02d; border-color: #fbc02d; }
+        .mini-cell.free { background: #4f5b66; border-color: #4f5b66; }
+    </style>
+</head>
+<body>
+
+    <h1>Corporate Bingo 🎯</h1>
+    <p class="subtitle">Täglich neu gemischt um 05:00 Uhr morgens</p>
+
+    <div id="login-screen" class="screen">
+        <label for="username">Dein Nickname:</label>
+        <input type="text" id="username" placeholder="z.B. Captain Buzzword" required>
+        <label for="custom-words">Eigene Begriffe hinzufügen (Optional, Kommagetrennt):</label>
+        <textarea id="custom-words" placeholder="Synergie, Agil, KI-gestützt..."></textarea>
+        <button onclick="joinGame()">Dem Tages-Bingo beitreten</button>
+    </div>
+
+    <div id="game-screen" class="game-container hidden">
+        <div class="main-stage">
+            <h2 style="margin-top:0;">Deine heutige Karte</h2>
+            <div class="grid" id="my-grid"></div>
+        </div>
+        <div class="sidebar">
+            <h3 style="margin-top:0; color:#aaaaaa;">Mitspieler Live</h3>
+            <div id="players-list"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let myId = null;
+
+        socket.on('connect', () => { myId = socket.id; });
+
+        function joinGame() {
+            const name = document.getElementById('username').value.trim();
+            if (!name) return alert("Bitte gib einen Namen ein!");
+            const wordsText = document.getElementById('custom-words').value;
+            const customWords = wordsText.split(',').map(w => w.trim()).filter(w => w !== "");
+            socket.emit('joinGame', { name, customWords });
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+        }
+
+        function sendClick(index) { socket.emit('clickCell', index); }
+
+        socket.on('updatePlayers', (players) => {
+            renderMyCard(players[myId]);
+            renderOtherPlayers(players);
+        });
+
+        socket.on('dailyResetTriggered', () => {
+            alert("⏰ Es ist 05:00 Uhr! Deine Bingokarte wurde für den neuen Tag zurückgesetzt!");
+        });
+
+        function renderMyCard(me) {
+            if (!me) return;
+            const grid = document.getElementById('my-grid');
+            grid.innerHTML = '';
+            me.card.forEach((cell, index) => {
+                const cellDiv = document.createElement('div');
+                cellDiv.classList.add('cell');
+                cellDiv.innerText = cell.text;
+                if (index === 12) {
+                    cellDiv.classList.add('free');
+                } else {
+                    if (cell.marked) cellDiv.classList.add('marked');
+                    cellDiv.onclick = () => sendClick(index);
+                }
+                grid.appendChild(cellDiv);
+            });
+        }
+
+        function renderOtherPlayers(players) {
+            const listContainer = document.getElementById('players-list');
+            listContainer.innerHTML = '';
+            let hasOthers = false;
+            for (let id in players) {
+                if (id === myId) continue;
+                hasOthers = true;
+                const p = players[id];
+                const playerCard = document.createElement('div');
+                playerCard.classList.add('player-preview-card');
+                const nameDiv = document.createElement('div');
+                nameDiv.classList.add('player-name');
+                nameDiv.innerHTML = `👤 ${p.name}`;
+                playerCard.appendChild(nameDiv);
+                const miniGrid = document.createElement('div');
+                miniGrid.classList.add('mini-grid');
+                p.card.forEach((cell, index) => {
+                    const miniCell = document.createElement('div');
+                    miniCell.classList.add('mini-cell');
+                    if (index === 12) miniCell.classList.add('free');
+                    else if (cell.marked) miniCell.classList.add('marked');
+                    miniCell.title = `${p.name}: "${cell.text}"`; 
+                    miniGrid.appendChild(miniCell);
+                });
+                playerCard.appendChild(miniGrid);
+                listContainer.appendChild(playerCard);
+            }
+            if (!hasOthers) {
+                listContainer.innerHTML = '<p style="color:#718096; font-size:0.9rem;">Warten auf weitere Kollegen...</p>';
+            }
+        }
+
+        socket.on('bingoWinner', (winnerName) => {
+            alert(`🎉 BINGO! ${winnerName} gewinnt das Bullshit-Bingo! 🏆`);
+        });
+    </script>
+</body>
+</html>
