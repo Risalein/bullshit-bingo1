@@ -10,7 +10,8 @@ app.use(express.static('public'));
 
 let players = {};
 
-const defaultWords = [
+// TRAGE HIER DEINE VORGEGEBENEN BEGRIFFE EIN (Mindestens 24 Stück!)
+const vorgegebeneBegriffe = [
     "Synergien", "Agil", "Könnt ihr mich hören?", "No-Brainer", "Disruption", 
     "Deep Dive", "Am Ende des Tages", "Auf dem Schirm", "KPIs", "Low-Hanging Fruits", 
     "Mindset", "New Work", "Micro stumm!", "Customer Journey", "Benchmark", 
@@ -19,15 +20,9 @@ const defaultWords = [
     "Bottleneck", "Best Practice", "Framework", "Deliverables"
 ];
 
-function generateIndividualCard(customWords = []) {
-    let userPool = [...customWords].filter(w => w.trim() !== "");
-    if (userPool.length < 24) {
-        const needed = 24 - userPool.length;
-        let availableDefaults = defaultWords.filter(w => !userPool.includes(w));
-        if (availableDefaults.length < needed) availableDefaults = [...defaultWords];
-        availableDefaults.sort(() => Math.random() - 0.5);
-        userPool = userPool.concat(availableDefaults.slice(0, needed));
-    }
+function generateIndividualCard() {
+    // Erstelle eine Kopie der Liste und mische sie komplett zufällig durch
+    let userPool = [...vorgegebeneBegriffe];
     userPool.sort(() => Math.random() - 0.5);
 
     let card = [];
@@ -49,7 +44,7 @@ function setupDailyReset() {
         if (now.getHours() === 5 && now.getMinutes() === 0) {
             console.log("05:00 Uhr erreicht: Generiere neue tägliche Karten...");
             for (let id in players) {
-                players[id].card = generateIndividualCard(players[id].customWordsInput);
+                players[id].card = generateIndividualCard();
             }
             io.emit('updatePlayers', players);
             io.emit('dailyResetTriggered');
@@ -61,12 +56,11 @@ setupDailyReset();
 io.on('connection', (socket) => {
     console.log(`Verbindung: ${socket.id}`);
 
-    socket.on('joinGame', ({ name, customWords }) => {
-        let card = generateIndividualCard(customWords);
+    socket.on('joinGame', ({ name }) => {
+        let card = generateIndividualCard();
         players[socket.id] = { 
             name: name || `Spieler ${socket.id.slice(0,4)}`, 
-            card: card,
-            customWordsInput: customWords
+            card: card
         };
         io.emit('updatePlayers', players);
     });
@@ -91,14 +85,11 @@ io.on('connection', (socket) => {
 });
 
 function checkBingo(card) {
-    const lines = [, [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [15, 16, 17, 18, 19], [20, 21, 22, 23, 24],
-, [1, 6, 11, 16, 21], [2, 7, 12, 17, 22], [3, 8, 13, 18, 23], [4, 9, 14, 19, 24],
-, [4, 8, 12, 16, 20]
+    const lines = [, [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [15, 16, 17, 18, 19], [20, 21, 22, 23, 24], // Horizontal, [1, 6, 11, 16, 21], [2, 7, 12, 17, 22], [3, 8, 13, 18, 23], [4, 9, 14, 19, 24], // Vertikal, [4, 8, 12, 16, 20] // Diagonal
     ];
     return lines.some(line => line.every(index => card[index].marked));
 }
 
-// WICHTIG FÜR RENDER: Nutzt den zugewiesenen Cloud-Port oder lokal 3000
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server läuft auf Port ${PORT}`);
