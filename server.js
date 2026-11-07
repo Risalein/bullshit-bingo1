@@ -10,14 +10,42 @@ app.use(express.static('public'));
 
 let players = {};
 
+// HIER SIND DEINE EINREICHTEN BEGRIFFE FEST HINTERLEGT
 const defaultWords = [
-    "Synergien", "Agil", "Könnt ihr mich hören?", "No-Brainer", "Disruption", 
-    "Deep Dive", "Am Ende des Tages", "Auf dem Schirm", "KPIs", "Low-Hanging Fruits", 
-    "Mindset", "New Work", "Micro stumm!", "Customer Journey", "Benchmark", 
-    "Quick Win", "Clustern", "Offline besprechen", "Outside the box", "Next Steps",
-    "Fokus", "Mehrwert", "Win-Win", "Stakeholder", "Pipeline", "Skalieren", 
-    "Bottleneck", "Best Practice", "Framework", "Deliverables", "KPI-Review",
-    "Onboarding", "Roadmap", "Uplift", "Ready to go", "Meilenstein"
+    "VU aus Verfolgung",
+    "VU aus Dummheit",
+    "FD Eigenunfall",
+    "PD Eigenunfall",
+    "VPD baut scheiße",
+    "Faye sauer auf VPD",
+    "Frostie sauer auf VPD",
+    "Faye ist sauer",
+    "Frostie ist sauer",
+    "Issi ist sauer",
+    "Sturz aus Dummheit",
+    "Einsatz anders als Dispatch",
+    "MANV Vorarlarm",
+    "MANV Schlägerei",
+    "Fake Cop Ankündigung",
+    "Dauerhaft bewusstlos",
+    "Liberty Schlägerei",
+    "Fahrzeug verschwindet auf MANV",
+    "Leitstellentelefon ohne Antwort",
+    "Einheit antwortet nicht im Funk",
+    "CMC antwortet nicht im Funk",
+    "Bernards antwortet nicht im Funk",
+    "Bernards fordert Abtransport",
+    "CMC vor 22 Uhr im Feierabend",
+    "Mindestbesatzung zwischen 18 und 22 Uhr",
+    "Storno",
+    "Ortskunde",
+    "Falscher Funk gefunkt",
+    "Patient streitet mit PD",
+    "Alkoholintox",
+    "Falsches Fahrzeug",
+    "Status vergessen",
+    "Funkgerät ausgeschalten",
+    "EMS wird überfallen"
 ];
 
 let dynamicWords = [];
@@ -27,7 +55,7 @@ function generateIndividualCard() {
     combinedPool.sort(() => Math.random() - 0.5);
 
     let card = [];
-    // Schleife läuft nun über alle 25 Felder ohne Ausnahme
+    // Generiert alle 25 Felder (inklusive der Mitte) aus dem Begriffspool
     for (let i = 0; i < 25; i++) {
         card.push({ text: combinedPool[i] || `Ersatzwort ${i}`, marked: false });
     }
@@ -81,7 +109,6 @@ io.on('connection', (socket) => {
     socket.on('clickCell', ({ cellIndex, userId }) => {
         if (!userId || !players[userId]) return;
 
-        // Die Sperre für Index 12 wurde entfernt. Jedes Feld schaltet nun den Zustand um.
         players[userId].card[cellIndex].marked = !players[userId].card[cellIndex].marked;
         let hasWon = checkBingo(players[userId].card);
         
@@ -96,7 +123,8 @@ io.on('connection', (socket) => {
 });
 
 function checkBingo(card) {
-    const lines = [,,,,, ,,,,, , ];
+    const lines = [, [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [15, 16, 17, 18, 19], [20, 21, 22, 23, 24], // Horizontal, [1, 6, 11, 16, 21], [2, 7, 12, 17, 22], [3, 8, 13, 18, 23], [4, 9, 14, 19, 24], // Vertikal, [4, 8, 12, 16, 20] // Diagonal
+    ];
     return lines.some(line => line.every(index => card[index].marked));
 }
 
