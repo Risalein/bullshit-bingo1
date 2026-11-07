@@ -2,25 +2,30 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Daily Multiplayer Bullshit Bingo</title>
+    <title>Community Multiplayer Bullshit Bingo</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e222b; color: #f5f5f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         h1 { color: #fbc02d; margin-bottom: 5px; font-size: 2.2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-        h2, h3 { color: #fff; }
+        h2, h3 { color: #fff; margin-top: 0; }
         p.subtitle { color: #aaaaaa; margin-top: 0; margin-bottom: 25px; }
-        .screen { background: #282c34; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 500px; width: 100%; box-sizing: border-box; margin-bottom: 20px; border-top: 4px solid #fbc02d; }
+        .screen { background: #282c34; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 550px; width: 100%; box-sizing: border-box; margin-bottom: 20px; border-top: 4px solid #fbc02d; }
         .hidden { display: none !important; }
-        label { font-weight: bold; color: #fbc02d; display: block; margin-bottom: 8px; }
-        input { width: 100%; padding: 12px; margin: 5px 0 20px 0; border: 2px solid #3f4451; background: #1e222b; color: #fff; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        label { font-weight: bold; color: #fbc02d; display: block; margin-bottom: 6px; }
+        input { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 2px solid #3f4451; background: #1e222b; color: #fff; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
         input:focus { border-color: #fbc02d; outline: none; }
-        button { width: 100%; padding: 14px; background: #fbc02d; color: #1e222b; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease; }
+        button { width: 100%; padding: 14px; background: #fbc02d; color: #1e222b; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease; margin-bottom: 10px; }
         button:hover { background: #fdd835; transform: translateY(-1px); }
+        .sub-btn { background: #4f5b66; color: #fff; padding: 10px; font-size: 0.95rem; }
+        .sub-btn:hover { background: #65737e; }
+        .stats { font-size: 0.85rem; color: #aaaaaa; text-align: center; margin-top: 5px; margin-bottom: 15px; background: #1e222b; padding: 8px; border-radius: 6px; border: 1px solid #3f4451; }
+        
         .game-container { display: flex; gap: 30px; max-width: 1200px; width: 100%; align-items: flex-start; justify-content: center; }
         .main-stage { flex: 2; min-width: 320px; }
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 15px; }
         .cell { aspect-ratio: 1; background: #282c34; border: 2px solid #3f4451; color: #eee; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 600; font-size: 0.8rem; padding: 6px; cursor: pointer; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.15s ease; word-break: break-word; }
         .cell:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); border-color: #fbc02d; }
         .cell.marked { background: #fbc02d; color: #1e222b; border-color: #fbc02d; font-weight: bold; }
+        .cell.free { background: #4f5b66; color: #fff; cursor: default; border-color: #4f5b66; }
         .sidebar { flex: 1; min-width: 250px; background: #282c34; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 4px solid #5f6368; }
         .player-preview-card { margin-bottom: 20px; border-bottom: 1px solid #3f4451; padding-bottom: 15px; }
         .player-preview-card:last-child { border: none; }
@@ -28,26 +33,42 @@
         .mini-grid { display: grid; grid-template-columns: repeat(5, 16px); gap: 3px; }
         .mini-cell { width: 16px; height: 16px; background: #1e222b; border-radius: 3px; border: 1px solid #3f4451; }
         .mini-cell.marked { background: #fbc02d; border-color: #fbc02d; }
+        .mini-cell.free { background: #4f5b66; border-color: #4f5b66; }
     </style>
 </head>
 <body>
 
-    <h1>VFD Bingo 🎯</h1>
-    <p class="subtitle">Täglich neu gemischt um 05:00 Uhr morgens</p>
+    <h1>Corporate Bingo 🎯</h1>
+    <p class="subtitle">Mische deine Begriffe mit der Community!</p>
 
+    <!-- ANMELDUNG & COMMUNITY-POOL -->
     <div id="login-screen" class="screen">
-        <label for="username">Dein Nickname:</label>
+        <!-- Live-Statistik des Begriffs-Pools -->
+        <div class="stats" id="pool-stats">
+            Lade Begriffs-Pool...
+        </div>
+
+        <!-- Sektion 1: Begriff hinzufügen -->
+        <label for="new-word">Neuen Bingo-Begriff hinzufügen:</label>
+        <input type="text" id="new-word" placeholder="z.B. AI-gestützt, Kaffeepause...">
+        <button class="sub-btn" onclick="submitWord()">🚀 Begriff in Pool einsenden</button>
+        
+        <hr style="border: 0; border-top: 1px solid #3f4451; margin: 25px 0;">
+
+        <!-- Sektion 2: Spiel beitreten -->
+        <label for="username">Dein Nickname für das Spiel:</label>
         <input type="text" id="username" placeholder="z.B. Captain Buzzword" required>
         <button onclick="joinGame()">Dem Tages-Bingo beitreten</button>
     </div>
 
+    <!-- GAME SCREEN -->
     <div id="game-screen" class="game-container hidden">
         <div class="main-stage">
-            <h2 style="margin-top:0;">Deine heutige Karte</h2>
+            <h2>Deine heutige Karte</h2>
             <div class="grid" id="my-grid"></div>
         </div>
         <div class="sidebar">
-            <h3 style="margin-top:0; color:#aaaaaa;">Mitspieler Live</h3>
+            <h3 style="color:#aaaaaa;">Mitspieler Live</h3>
             <div id="players-list"></div>
         </div>
     </div>
@@ -58,6 +79,24 @@
         let myId = null;
 
         socket.on('connect', () => { myId = socket.id; });
+
+        // Begriff an den Server senden
+        function submitWord() {
+            const wordInput = document.getElementById('new-word');
+            const word = wordInput.value.trim();
+            if (!word) return alert("Bitte gib einen Begriff ein!");
+            
+            socket.emit('addCustomWord', word);
+            wordInput.value = ''; // Feld leeren
+            alert(`✔ "${word}" wurde erfolgreich zum Pool hinzugefügt und ist ab jetzt für alle verfügbar!`);
+        }
+
+        // Live-Update der Begriffsanzahl empfangen
+        socket.on('wordCountUpdate', (data) => {
+            document.getElementById('pool-stats').innerHTML = 
+                `📦 Gesamt-Pool: <b>${data.total} Begriffe</b> vorhanden <br> ` +
+                `👥 Davon von Spielern vorgeschlagen: <b>${data.custom} Begriffe</b>`;
+        });
 
         function joinGame() {
             const name = document.getElementById('username').value.trim();
@@ -75,7 +114,7 @@
         });
 
         socket.on('dailyResetTriggered', () => {
-            alert("⏰ Es ist 05:00 Uhr! Deine Bingokarte wurde für den neuen Tag zurückgesetzt!");
+            alert("⏰ Es ist 05:00 Uhr! Deine Bingokarte wurde mit dem aktuellen Begriffspool neu generiert!");
         });
 
         function renderMyCard(me) {
@@ -86,10 +125,12 @@
                 const cellDiv = document.createElement('div');
                 cellDiv.classList.add('cell');
                 cellDiv.innerText = cell.text;
-                
-                if (cell.marked) cellDiv.classList.add('marked');
-                cellDiv.onclick = () => sendClick(index);
-                
+                if (index === 12) {
+                    cellDiv.classList.add('free');
+                } else {
+                    if (cell.marked) cellDiv.classList.add('marked');
+                    cellDiv.onclick = () => sendClick(index);
+                }
                 grid.appendChild(cellDiv);
             });
         }
@@ -113,10 +154,9 @@
                 p.card.forEach((cell, index) => {
                     const miniCell = document.createElement('div');
                     miniCell.classList.add('mini-cell');
-                    
-                    if (cell.marked) miniCell.classList.add('marked');
+                    if (index === 12) miniCell.classList.add('free');
+                    else if (cell.marked) miniCell.classList.add('marked');
                     miniCell.title = `${p.name}: "${cell.text}"`; 
-                    
                     miniGrid.appendChild(miniCell);
                 });
                 playerCard.appendChild(miniGrid);
