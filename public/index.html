@@ -15,10 +15,14 @@
         input:focus { border-color: #fbc02d; outline: none; }
         button { width: 100%; padding: 14px; background: #fbc02d; color: #1e222b; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease; margin-bottom: 10px; }
         button:hover { background: #fdd835; transform: translateY(-1px); }
-        .sub-btn { background: #4f5b66; color: #fff; padding: 10px; font-size: 0.95rem; }
-        .sub-btn:hover { background: #65737e; }
-        .stats { font-size: 0.85rem; color: #aaaaaa; text-align: center; margin-top: 5px; margin-bottom: 15px; background: #1e222b; padding: 8px; border-radius: 6px; border: 1px solid #3f4451; }
         
+        /* Obere Leiste im Spiel zum Wörter hinzufügen */
+        .top-bar { background: #282c34; width: 100%; max-width: 1200px; padding: 15px 20px; border-radius: 12px; box-sizing: border-box; margin-bottom: 20px; border-left: 4px solid #fbc02d; display: flex; gap: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+        .top-bar-inputs { display: flex; gap: 10px; align-items: center; flex-grow: 1; max-width: 600px; }
+        .top-bar input { margin: 0; padding: 10px; }
+        .top-bar button { margin: 0; padding: 10px 20px; width: auto; font-size: 0.95rem; white-space: nowrap; }
+        
+        .stats { font-size: 0.85rem; color: #aaaaaa; text-align: center; margin-bottom: 15px; background: #1e222b; padding: 8px; border-radius: 6px; border: 1px solid #3f4451; }
         .game-container { display: flex; gap: 30px; max-width: 1200px; width: 100%; align-items: flex-start; justify-content: center; }
         .main-stage { flex: 2; min-width: 320px; }
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 15px; }
@@ -39,26 +43,24 @@
 <body>
 
     <h1>Corporate Bingo 🎯</h1>
-    <p class="subtitle">Mische deine Begriffe mit der Community!</p>
+    <p class="subtitle">Deine Haken und Karten bleiben beim Neuladen gesichert!</p>
 
-    <!-- ANMELDUNG & COMMUNITY-POOL -->
+    <!-- ANMELDUNG (Wird übersprungen, wenn bereits eingeloggt) -->
     <div id="login-screen" class="screen">
-        <!-- Live-Statistik des Begriffs-Pools -->
-        <div class="stats" id="pool-stats">
-            Lade Begriffs-Pool...
-        </div>
-
-        <!-- Sektion 1: Begriff hinzufügen -->
-        <label for="new-word">Neuen Bingo-Begriff hinzufügen:</label>
-        <input type="text" id="new-word" placeholder="z.B. AI-gestützt, Kaffeepause...">
-        <button class="sub-btn" onclick="submitWord()">🚀 Begriff in Pool einsenden</button>
+        <div class="stats" id="pool-stats">Lade Begriffs-Pool...</div>
         
-        <hr style="border: 0; border-top: 1px solid #3f4451; margin: 25px 0;">
-
-        <!-- Sektion 2: Spiel beitreten -->
         <label for="username">Dein Nickname für das Spiel:</label>
         <input type="text" id="username" placeholder="z.B. Captain Buzzword" required>
         <button onclick="joinGame()">Dem Tages-Bingo beitreten</button>
+    </div>
+
+    <!-- LIVE-LEISTE WÄHREND DES SPIELS (Für Begriffe zwischendurch) -->
+    <div id="top-bar-container" class="top-bar hidden">
+        <div style="font-size: 0.95rem; color: #fbc02d; font-weight: bold;" id="game-pool-counter">Pool: -</div>
+        <div class="top-bar-inputs">
+            <input type="text" id="live-new-word" placeholder="Begriff zwischendurch einwerfen...">
+            <button onclick="submitLiveWord()">🚀 Einsenden</button>
+        </div>
     </div>
 
     <!-- GAME SCREEN -->
@@ -76,45 +78,67 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        let myId = null;
-
-        socket.on('connect', () => { myId = socket.id; });
-
-        // Begriff an den Server senden
-        function submitWord() {
-            const wordInput = document.getElementById('new-word');
-            const word = wordInput.value.trim();
-            if (!word) return alert("Bitte gib einen Begriff ein!");
-            
-            socket.emit('addCustomWord', word);
-            wordInput.value = ''; // Feld leeren
-            alert(`✔ "${word}" wurde erfolgreich zum Pool hinzugefügt und ist ab jetzt für alle verfügbar!`);
+        
+        // Hole oder erstelle eine eindeutige, persistente User-ID für diesen Browser-Tab
+        let userId = sessionStorage.getItem('bingo_user_id');
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('bingo_user_id', userId);
         }
 
-        // Live-Update der Begriffsanzahl empfangen
-        socket.on('wordCountUpdate', (data) => {
-            document.getElementById('pool-stats').innerHTML = 
-                `📦 Gesamt-Pool: <b>${data.total} Begriffe</b> vorhanden <br> ` +
-                `👥 Davon von Spielern vorgeschlagen: <b>${data.custom} Begriffe</b>`;
+        let mySavedName = sessionStorage.getItem('bingo_user_name');
+
+        // Automatisch wiederbeitreten, wenn Name und ID bereits existieren
+        socket.on('connect', () => {
+            if (mySavedName) {
+                socket.emit('joinGame', { name: mySavedName, userId: userId });
+                showGameScreen();
+            }
         });
 
         function joinGame() {
             const name = document.getElementById('username').value.trim();
             if (!name) return alert("Bitte gib einen Namen ein!");
-            socket.emit('joinGame', { name });
+            
+            sessionStorage.setItem('bingo_user_name', name);
+            socket.emit('joinGame', { name, userId });
+            showGameScreen();
+        }
+
+        function showGameScreen() {
             document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('top-bar-container').classList.remove('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
         }
 
-        function sendClick(index) { socket.emit('clickCell', index); }
+        function submitLiveWord() {
+            const input = document.getElementById('live-new-word');
+            const word = input.value.trim();
+            if (!word) return alert("Bitte gib einen Begriff ein!");
+            
+            socket.emit('addCustomWord', word);
+            input.value = '';
+            alert(`✔ "${word}" wurde dem Pool hinzugefügt!`);
+        }
+
+        function sendClick(index) {
+            socket.emit('clickCell', { cellIndex: index, userId: userId });
+        }
+
+        socket.on('wordCountUpdate', (data) => {
+            const text = `📦 Pool: ${data.total} Begriffe (${data.custom} von Spielern)`;
+            const loginStats = document.getElementById('pool-stats');
+            if (loginStats) loginStats.innerHTML = text;
+            document.getElementById('game-pool-counter').innerText = text;
+        });
 
         socket.on('updatePlayers', (players) => {
-            renderMyCard(players[myId]);
+            renderMyCard(players[userId]);
             renderOtherPlayers(players);
         });
 
         socket.on('dailyResetTriggered', () => {
-            alert("⏰ Es ist 05:00 Uhr! Deine Bingokarte wurde mit dem aktuellen Begriffspool neu generiert!");
+            alert("⏰ Es ist 05:00 Uhr! Deine Bingokarte wurde für den neuen Tag zurückgesetzt!");
         });
 
         function renderMyCard(me) {
@@ -140,7 +164,7 @@
             listContainer.innerHTML = '';
             let hasOthers = false;
             for (let id in players) {
-                if (id === myId) continue;
+                if (id === userId) continue;
                 hasOthers = true;
                 const p = players[id];
                 const playerCard = document.createElement('div');
@@ -149,6 +173,7 @@
                 nameDiv.classList.add('player-name');
                 nameDiv.innerHTML = `👤 ${p.name}`;
                 playerCard.appendChild(nameDiv);
+
                 const miniGrid = document.createElement('div');
                 miniGrid.classList.add('mini-grid');
                 p.card.forEach((cell, index) => {
