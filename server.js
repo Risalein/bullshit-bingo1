@@ -8,32 +8,33 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static('public'));
 
+// Speicher für alle Spieler im Spiel (wird über persistente IDs gehalten)
 let players = {};
 
-// Deine reinen RP-Begriffe (Exakt 34 Stück, ohne Platzhalter)
-const vorgegebeneBegriffe = [
-    "VU aus Verfolgung", "VU aus Dummheit", "FD Eigenunfall", "PD Eigenunfall", "VPD baut scheiße",
-    "Faye sauer auf VPD", "Frostie sauer auf VPD", "Faye ist sauer", "Frostie ist sauer", "Issi ist sauer",
-    "Sturz aus Dummheit", "Einsatz anders als Dispatch", "MANV Vorarlarm", "MANV Schlägerei", "Fake Cop Ankündigung",
-    "Dauerhaft bewusstlos", "Liberty Schlägerei", "Fahrzeug verschwindet auf MANV", "Leitstellentelefon ohne Antwort", "Einheit antwortet nicht im Funk",
-    "CMC antwortet nicht im Funk", "Bernards antwortet nicht im Funk", "Bernards fordert Abtransport", "CMC vor 22 Uhr im Feierabend", "Mindestbesatzung zwischen 18 und 22 Uhr",
-    "Storno", "Ortskunde", "Falscher Funk gefunkt", "Patient streitet mit PD", "Alkoholintox",
-    "Falsches Fahrzeug", "Status vergessen", "Funkgerät ausgeschalten", "EMS wird überfallen"
+const defaultWords = [
+    "Synergien", "Agil", "Könnt ihr mich hören?", "No-Brainer", "Disruption", 
+    "Deep Dive", "Am Ende des Tages", "Auf dem Schirm", "KPIs", "Low-Hanging Fruits", 
+    "Mindset", "New Work", "Micro stumm!", "Customer Journey", "Benchmark", 
+    "Quick Win", "Clustern", "Offline besprechen", "Outside the box", "Next Steps",
+    "Fokus", "Mehrwert", "Win-Win", "Stakeholder", "Pipeline", "Skalieren", 
+    "Bottleneck", "Best Practice", "Framework", "Deliverables"
 ];
 
-function generateIndividualCard() {
-    let userPool = [...vorgegebeneBegriffe];
-    
-    // Professioneller Fisher-Yates Shuffle für echte Zufallsmischung
-    for (let i = userPool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [userPool[i], userPool[j]] = [userPool[j], userPool[i]];
-    }
+let dynamicWords = [];
 
-    // Erstellt das 5x5 Feld komplett OHNE Joker (Feld 12 ist ein normaler Begriff)
+function generateIndividualCard() {
+    let combinedPool = [...new Set([...dynamicWords, ...defaultWords])];
+    combinedPool.sort(() => Math.random() - 0.5);
+
     let card = [];
+    let wordIndex = 0;
     for (let i = 0; i < 25; i++) {
-        card.push({ text: userPool[i], marked: false });
+        if (i === 12) {
+            card.push({ text: "☕ JOKER (FREE)", marked: true });
+        } else {
+            card.push({ text: combinedPool[wordIndex], marked: false });
+            wordIndex++;
+        }
     }
     return card;
 }
@@ -42,7 +43,7 @@ function setupDailyReset() {
     setInterval(() => {
         const now = new Date();
         if (now.getHours() === 5 && now.getMinutes() === 0) {
-            console.log("05:00 Uhr erreicht: Generiere neue tägliche Karten...");
+            console.log("05:00 Uhr: Karten werden neu generiert.");
             for (let id in players) {
                 players[id].card = generateIndividualCard();
             }
@@ -54,42 +55,66 @@ function setupDailyReset() {
 setupDailyReset();
 
 io.on('connection', (socket) => {
-    console.log(`Verbindung: ${socket.id}`);
+    // Sende die aktuellen Pool-Zahlen an den frisch verbundenen Client
+    socket.emit('wordCountUpdate', { total: [...new Set([...dynamicWords, ...defaultWords])].length, custom: dynamicWords.length });
 
-    socket.on('joinGame', ({ name }) => {
-        let card = generateIndividualCard();
-        players[socket.id] = { 
-            name: name || `Spieler ${socket.id.slice(0,4)}`, 
-            card: card
-        };
+    // Event: Begriff einsenden
+    socket.on('addCustomWord', (word) => {
+        const cleanedWord = word.trim();
+        if (!cleanedWord) return;
+        
+        if (!defaultWords.includes(cleanedWord) && !dynamicWords.includes(cleanedWord)) {
+            dynamicWords.push(cleanedWord);
+            io.emit('wordCountUpdate', { total: [...new Set([...dynamicWords, ...defaultWords])].length, custom: dynamicWords.length });
+        }
+    });
+
+    // Event: Spiel beitreten oder wiederverbinden mit eindeutiger userId
+    socket.on('joinGame', ({ name, userId }) => {
+        if (!userId) return;
+
+        // Wenn der Spieler bereits existiert (z. B. nach einem Tab-Wechsel), behalten wir seine Karte!
+        if (players[userId]) {
+            // Aktualisiere nur den Namen, falls er geändert wurde
+            if (name) players[userId].name = name;
+        } else {
+            // Komplett neuer Spieler erhält eine neue Karte
+            players[userId] = {
+                name: name || `Spieler ${userId.slice(0,4)}`,
+                card: generateIndividualCard()
+            };
+        }
+
+        // Verknüpfe die aktuelle socket.id mit der userId für den Disconnect
+        socket.userId = userId;
+
         io.emit('updatePlayers', players);
     });
 
-    socket.on('clickCell', (cellIndex) => {
-        if (!players[socket.id]) return;
+    // Event: Feld anklicken
+    socket.on('clickCell', ({ cellIndex, userId }) => {
+        if (!userId || !players[userId]) return;
+        if (cellIndex === 12) return;
 
-        // Umschalten des Feldes (Feld 12 ist jetzt ebenfalls klickbar!)
-        players[socket.id].card[cellIndex].marked = !players[socket.id].card[cellIndex].marked;
-        let hasWon = checkBingo(players[socket.id].card);
+        players[userId].card[cellIndex].marked = !players[userId].card[cellIndex].marked;
+        let hasWon = checkBingo(players[userId].card);
+        
         io.emit('updatePlayers', players);
 
         if (hasWon) {
-            io.emit('bingoWinner', players[socket.id].name);
+            io.emit('bingoWinner', players[userId].name);
         }
     });
 
     socket.on('disconnect', () => {
-        delete players[socket.id];
-        io.emit('updatePlayers', players);
+        // Bei einem kurzen Verbindungsabbruch/Zurückgehen löschen wir den Spieler NICHT sofort,
+        // damit sein Zustand erhalten bleibt, wenn er gleich wiederkommt.
+        // Optionale Bereinigung könnte nach Inaktivität erfolgen.
     });
 });
 
 function checkBingo(card) {
-    // Alle korrekten mathematischen Gewinnlinien für ein normales 5x5 Raster (0-24)
-    const lines = [
-        // Horizontal, [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [15, 16, 17, 18, 19], [20, 21, 22, 23, 24],
-        // Vertikal, [1, 6, 11, 16, 21], [2, 7, 12, 17, 22], [3, 8, 13, 18, 23], [4, 9, 14, 19, 24],
-        // Diagonal, [4, 8, 12, 16, 20]
+    const lines = [, [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24], // Horizontal, [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24], // Vertikal, [4,8,12,16,20] // Diagonal
     ];
     return lines.some(line => line.every(index => card[index].marked));
 }
