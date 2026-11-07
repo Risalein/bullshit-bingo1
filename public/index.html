@@ -8,12 +8,11 @@
         h1 { color: #fbc02d; margin-bottom: 5px; font-size: 2.2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
         h2, h3 { color: #fff; }
         p.subtitle { color: #aaaaaa; margin-top: 0; margin-bottom: 25px; }
-        .screen { background: #282c34; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 700px; width: 100%; box-sizing: border-box; margin-bottom: 20px; border-top: 4px solid #fbc02d; }
+        .screen { background: #282c34; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 500px; width: 100%; box-sizing: border-box; margin-bottom: 20px; border-top: 4px solid #fbc02d; }
         .hidden { display: none !important; }
-        label { font-weight: bold; color: #fbc02d; display: block; margin-bottom: 5px; }
-        input, textarea { width: 100%; padding: 12px; margin: 5px 0 20px 0; border: 2px solid #3f4451; background: #1e222b; color: #fff; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
-        input:focus, textarea:focus { border-color: #fbc02d; outline: none; }
-        textarea { height: 80px; resize: vertical; }
+        label { font-weight: bold; color: #fbc02d; display: block; margin-bottom: 8px; }
+        input { width: 100%; padding: 12px; margin: 5px 0 20px 0; border: 2px solid #3f4451; background: #1e222b; color: #fff; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        input:focus { border-color: #fbc02d; outline: none; }
         button { width: 100%; padding: 14px; background: #fbc02d; color: #1e222b; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease; }
         button:hover { background: #fdd835; transform: translateY(-1px); }
         .game-container { display: flex; gap: 30px; max-width: 1200px; width: 100%; align-items: flex-start; justify-content: center; }
@@ -41,8 +40,6 @@
     <div id="login-screen" class="screen">
         <label for="username">Dein Nickname:</label>
         <input type="text" id="username" placeholder="z.B. Captain Buzzword" required>
-        <label for="custom-words">Eigene Begriffe hinzufügen (Optional, Kommagetrennt):</label>
-        <textarea id="custom-words" placeholder="Synergie, Agil, KI-gestützt..."></textarea>
         <button onclick="joinGame()">Dem Tages-Bingo beitreten</button>
     </div>
 
@@ -67,9 +64,7 @@
         function joinGame() {
             const name = document.getElementById('username').value.trim();
             if (!name) return alert("Bitte gib einen Namen ein!");
-            const wordsText = document.getElementById('custom-words').value;
-            const customWords = wordsText.split(',').map(w => w.trim()).filter(w => w !== "");
-            socket.emit('joinGame', { name, customWords });
+            socket.emit('joinGame', { name });
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
         }
