@@ -73,9 +73,16 @@
             const headers = { 
                 "apikey": SUPABASE_KEY, 
                 "Authorization": `Bearer ${SUPABASE_KEY}`, 
-                "Content-Type": "application/json", 
-                "Prefer": method === 'GET' ? "count=exact" : "return=representation" 
+                "Content-Type": "application/json"
             };
+            
+            // WICHTIG: Wenn Daten gesendet werden, zwingen wir Supabase zu einem Update (Upsert)
+            if (method === 'POST') {
+                headers["Prefer"] = "resolution=merge-duplicates,return=representation";
+            } else {
+                headers["Prefer"] = "count=exact";
+            }
+
             const options = { method, headers };
             if (body) options.body = JSON.stringify(body);
             try {
@@ -99,7 +106,6 @@
 
         async function init() {
             await updateWordCount();
-            // Ruft die Mitspieler-Daten alle 3 Sekunden ab
             setInterval(fetchAndRenderAllPlayers, 3000);
             if (mySavedName) { await loadMyExistingGame(); showGameScreen(); }
         }
@@ -161,7 +167,6 @@
 
         async function sendClick(index) {
             myCardData[index].marked = !myCardData[index].marked; renderMyCard();
-            // Überschreibt den aktuellen Stand in der Datenbank
             await supabaseCall('bingo_players', 'POST', [{ user_id: userId, name: mySavedName, card: myCardData, updated_at: new Date() }]);
             if (checkBingo(myCardData)) { alert("🎉 BINGO! Du hast gewonnen! Informiere deine Mitspieler!"); }
             fetchAndRenderAllPlayers();
@@ -189,7 +194,6 @@
                 playerCard.innerHTML = `<div class="player-name">👤 ${p.name}</div>`;
                 const miniGrid = document.createElement('div'); miniGrid.classList.add('mini-grid');
                 
-                // Konvertiert die Karte, falls Supabase sie als Text-String sendet
                 let remoteCard = typeof p.card === 'string' ? JSON.parse(p.card) : p.card;
                 
                 if (remoteCard && Array.isArray(remoteCard)) {
@@ -207,10 +211,8 @@
 
         function checkBingo(card) {
             if (!card || card.length < 25) return false;
-            const lines = [
-                [0,1,2,3,4], [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24], // Horizontal
-                [0,5,10,15,20], [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24], // Vertikal
-                [0,6,12,18,24], [4,8,12,16,20] // Diagonal
+            // Die konkreten Linien-Indizes für ein 5x5 Raster (0 bis 24)
+            const lines = [, [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24], // Horizontal, [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24], // Vertikal, [4,8,12,16,20] // Diagonal
             ];
             return lines.some(line => line.every(idx => card[idx] && card[idx].marked));
         }
