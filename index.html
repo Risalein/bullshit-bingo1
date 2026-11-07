@@ -3,10 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Rettungsdienst & Funk Bingo 🚨</title>
-    
-    <!-- Neuer, extrem stabiler Server für das Supabase-Skript -->
-    <script src="https://cloudflare.com"></script>
-
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e222b; color: #f5f5f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         h1 { color: #fbc02d; margin-bottom: 5px; font-size: 2.2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
@@ -41,7 +37,7 @@
 </head>
 <body>
     <h1>Rettungsdienst & Funk Bingo 🚨</h1>
-    <p class="subtitle">Echtzeit-Synchronisation über Cloud-Datenbank</p>
+    <p class="subtitle">Echtzeit-Synchronisation über integrierten Cloud-Client</p>
     <div id="login-screen" class="screen">
         <div class="stats" id="pool-stats">Verbinde zur Cloud-Datenbank...</div>
         <label for="username">Dein Nickname für das Spiel:</label>
@@ -67,10 +63,32 @@
     </div>
     <script>
         // SUPABASE KONFIGURATION
-        const SUPABASE_URL = "https://euqjzfqxqwcyllbzjwbj.supabase.co/rest/v1/";
-        const SUPABASE_KEY = "sb_publishable_pAVVR0omhNP9UnXQ1P79Nw_xKghRlIh";
-        
-        const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SUPABASE_URL = "HIER_DEINE_SUPABASE_URL_EINTRAGEN";
+        const SUPABASE_KEY = "HIER_DEINEN_ANON_PUBLIC_KEY_EINTRAGEN";
+
+        // Integrierter, blockierungsfreier Mini-Client für Supabase REST-API
+        const supabaseCall = async (table, method = 'GET', body = null, query = '') => {
+            const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+            const headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": `Bearer ${SUPABASE_KEY}`,
+                "Content-Type": "application/json",
+                "Prefer": method === 'GET' ? "count=exact" : "return=representation"
+            };
+            const options = { method, headers };
+            if (body) options.body = JSON.stringify(body);
+            try {
+                const res = await fetch(url, options);
+                const countHeader = res.headers.get("content-range");
+                let count = null;
+                if (countHeader && countHeader.includes('/')) count = parseInt(countHeader.split('/'), 10);
+                const data = await res.json();
+                return { data, count, error: res.ok ? null : data };
+            } catch (e) {
+                return { data: null, count: null, error: e };
+            }
+        };
+
         let userId = sessionStorage.getItem('bingo_user_id') || 'user_' + Math.random().toString(36).substr(2, 9);
         sessionStorage.setItem('bingo_user_id', userId);
         let mySavedName = sessionStorage.getItem('bingo_user_name');
@@ -90,7 +108,7 @@
 
         async function init() {
             await updateWordCount();
-            setupRealtimeSubscriptions();
+            setInterval(fetchAndRenderAllPlayers, 4000);
             if (mySavedName) {
                 await loadMyExistingGame();
                 showGameScreen();
@@ -98,14 +116,15 @@
         }
 
         async function updateWordCount() {
-            const { count, error } = await supabase.from('bingo_words').select('*', { count: 'exact', head: true });
+            const { count, error } = await supabaseCall('bingo_words', 'GET', null, '?select=*&limit=1');
             if (!error) {
-                const text = `📦 Pool: ${count} Begriffe in der Cloud hinterlegt`;
+                const text = `📦 Pool: ${count || backupWords.length} Begriffe in der Cloud hinterlegt`;
                 if(document.getElementById('pool-stats')) document.getElementById('pool-stats').innerText = text;
                 document.getElementById('game-pool-counter').innerText = text;
                 if(document.getElementById('join-btn')) document.getElementById('join-btn').disabled = false;
             } else {
                 if(document.getElementById('pool-stats')) document.getElementById('pool-stats').innerText = "Verbindungsfehler zur Datenbank!";
+                console.error(error);
             }
         }
 
@@ -113,10 +132,10 @@
             const input = document.getElementById('live-new-word');
             const word = input.value.trim();
             if (!word) return alert("Bitte gib einen Begriff ein!");
-            const { error } = await supabase.from('bingo_words').insert([{ word: word }]);
+            const { error } = await supabaseCall('bingo_words', 'POST', [{ word: word }]);
             input.value = '';
-            if (error && error.code === "23505") alert("Dieser Begriff existiert bereits!");
-            else alert(`✔ "${word}" wurde der Cloud-Datenbank hinzugefügt!`);
+            if (error) alert("Fehler oder Begriff existiert bereits!");
+            else { alert(`✔ "${word}" wurde hinzugefügt!`); updateWordCount(); }
         }
 
         async function joinGame() {
@@ -124,21 +143,21 @@
             if (!name) return alert("Bitte gib einen Namen ein!");
             sessionStorage.setItem('bingo_user_name', name);
             mySavedName = name;
-            const { data } = await supabase.from('bingo_players').select('*').eq('user_id', userId).maybeSingle();
-            if (data) { myCardData = data.card; } else {
-                const { data: words } = await supabase.from('bingo_words').select('word');
+            const { data } = await supabaseCall('bingo_players', 'GET', null, `?user_id=eq.${userId}`);
+            if (data && data.length > 0) { myCardData = data[0].card; } else {
+                const { data: words } = await supabaseCall('bingo_words', 'GET', null, '?select=word');
                 let pool = (words && words.length >= 25) ? words.map(w => w.word) : [...backupWords];
                 pool.sort(() => Math.random() - 0.5);
                 myCardData = [];
                 for (let i = 0; i < 25; i++) { myCardData.push({ text: pool[i] || `Ersatz ${i}`, marked: false }); }
-                await supabase.from('bingo_players').upsert({ user_id: userId, name: name, card: myCardData, updated_at: new Date() });
+                await supabaseCall('bingo_players', 'POST', [{ user_id: userId, name: name, card: myCardData, updated_at: new Date() }]);
             }
             showGameScreen();
         }
 
         async function loadMyExistingGame() {
-            const { data } = await supabase.from('bingo_players').select('*').eq('user_id', userId).maybeSingle();
-            if (data) { myCardData = data.card; renderMyCard(); }
+            const { data } = await supabaseCall('bingo_players', 'GET', null, `?user_id=eq.${userId}`);
+            if (data && data.length > 0) { myCardData = data[0].card; renderMyCard(); }
         }
 
         function showGameScreen() {
@@ -150,8 +169,9 @@
 
         async function sendClick(index) {
             myCardData[index].marked = !myCardData[index].marked; renderMyCard();
-            await supabase.from('bingo_players').upsert({ user_id: userId, name: mySavedName, card: myCardData, updated_at: new Date() });
+            await supabaseCall('bingo_players', 'POST', [{ user_id: userId, name: mySavedName, card: myCardData, updated_at: new Date() }]);
             if (checkBingo(myCardData)) { alert("🎉 BINGO! Du hast gewonnen! Informiere deine Mitspieler!"); }
+            fetchAndRenderAllPlayers();
         }
 
         function renderMyCard() {
@@ -164,7 +184,7 @@
         }
 
         async function fetchAndRenderAllPlayers() {
-            const { data: allPlayers } = await supabase.from('bingo_players').select('*'); if (!allPlayers) return;
+            const { data: allPlayers } = await supabaseCall('bingo_players', 'GET'); if (!allPlayers) return;
             const listContainer = document.getElementById('players-list'); listContainer.innerHTML = '';
             let hasOthers = false;
             allPlayers.forEach(p => {
@@ -180,11 +200,6 @@
                 playerCard.appendChild(miniGrid); listContainer.appendChild(playerCard);
             });
             if (!hasOthers) listContainer.innerHTML = '<p style="color:#718096; font-size:0.9rem;">Warten auf weitere Kollegen...</p>';
-        }
-
-        function setupRealtimeSubscriptions() {
-            supabase.channel('public:bingo_words').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bingo_words' }, () => { updateWordCount(); }).subscribe();
-            supabase.channel('public:bingo_players').on('postgres_changes', { event: '*', schema: 'public', table: 'bingo_players' }, () => { fetchAndRenderAllPlayers(); }).subscribe();
         }
 
         function checkBingo(card) {
