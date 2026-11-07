@@ -66,7 +66,7 @@
         let SUPABASE_URL = "https://euqjzfqxqwcyllbzjwbj.supabase.co/rest/v1/";
         const SUPABASE_KEY = "sb_publishable_pAVVR0omhNP9UnXQ1P79Nw_xKghRlIh";
 
-         SUPABASE_URL = SUPABASE_URL.replace(/\/$/, "").replace(/\/rest\/v1$/, "");
+          SUPABASE_URL = SUPABASE_URL.replace(/\/$/, "").replace(/\/rest\/v1$/, "");
 
         const supabaseCall = async (table, method = 'GET', body = null, query = '') => {
             const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
@@ -76,7 +76,6 @@
                 "Content-Type": "application/json"
             };
             
-            // WICHTIG: Wenn Daten gesendet werden, zwingen wir Supabase zu einem Update (Upsert)
             if (method === 'POST') {
                 headers["Prefer"] = "resolution=merge-duplicates,return=representation";
             } else {
@@ -95,9 +94,14 @@
             } catch (e) { return { data: null, count: null, error: e }; }
         };
 
-        let userId = sessionStorage.getItem('bingo_user_id') || 'user_' + Math.random().toString(36).substr(2, 9);
-        sessionStorage.setItem('bingo_user_id', userId);
-        let mySavedName = sessionStorage.getItem('bingo_user_name');
+        // WICHTIG: Verwende localStorage statt sessionStorage, damit die ID auch beim Schließen des Tabs bleibt!
+        let userId = localStorage.getItem('bingo_user_id');
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('bingo_user_id', userId);
+        }
+        
+        let mySavedName = localStorage.getItem('bingo_user_name');
         let myCardData = [];
 
         const backupWords = [
@@ -106,8 +110,21 @@
 
         async function init() {
             await updateWordCount();
+            
+            // Starte das Polling für die Mitspieler
             setInterval(fetchAndRenderAllPlayers, 3000);
-            if (mySavedName) { await loadMyExistingGame(); showGameScreen(); }
+            
+            // ZUERST prüfen, ob dieser Spieler bereits Name und Karte im Browser hinterlegt hat
+            if (mySavedName) {
+                const loaded = await loadMyExistingGame();
+                if (loaded) {
+                    showGameScreen();
+                    return; // Beende init hier, damit nicht fälschlicherweise das Login gezeigt wird
+                }
+            }
+            
+            // Wenn kein alter Spielstand gefunden wurde, zeige den Login-Screen
+            document.getElementById('login-screen').classList.remove('hidden');
         }
 
         async function updateWordCount() {
@@ -136,10 +153,15 @@
         async function joinGame() {
             const name = document.getElementById('username').value.trim();
             if (!name) return alert("Bitte gib einen Namen ein!");
-            sessionStorage.setItem('bingo_user_name', name);
+            
+            localStorage.setItem('bingo_user_name', name);
             mySavedName = name;
+            
             const { data } = await supabaseCall('bingo_players', 'GET', null, `?user_id=eq.${userId}`);
-            if (data && data.length > 0) { myCardData = typeof data[0].card === 'string' ? JSON.parse(data[0].card) : data[0].card; } else {
+            
+            if (data && data.length > 0) {
+                myCardData = typeof data[0].card === 'string' ? JSON.parse(data[0].card) : data[0].card;
+            } else {
                 const { data: words } = await supabaseCall('bingo_words', 'GET', null, '?select=word');
                 let pool = (words && words.length >= 25) ? words.map(w => w.word) : [...backupWords];
                 pool.sort(() => Math.random() - 0.5);
@@ -154,19 +176,23 @@
             const { data } = await supabaseCall('bingo_players', 'GET', null, `?user_id=eq.${userId}`);
             if (data && data.length > 0) { 
                 myCardData = typeof data[0].card === 'string' ? JSON.parse(data[0].card) : data[0].card; 
-                renderMyCard(); 
+                renderMyCard();
+                return true;
             }
+            return false;
         }
 
         function showGameScreen() {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('top-bar-container').classList.remove('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
-            renderMyCard(); fetchAndRenderAllPlayers();
+            renderMyCard(); 
+            fetchAndRenderAllPlayers();
         }
 
         async function sendClick(index) {
-            myCardData[index].marked = !myCardData[index].marked; renderMyCard();
+            myCardData[index].marked = !myCardData[index].marked; 
+            renderMyCard();
             await supabaseCall('bingo_players', 'POST', [{ user_id: userId, name: mySavedName, card: myCardData, updated_at: new Date() }]);
             if (checkBingo(myCardData)) { alert("🎉 BINGO! Du hast gewonnen! Informiere deine Mitspieler!"); }
             fetchAndRenderAllPlayers();
@@ -183,13 +209,14 @@
         }
 
         async function fetchAndRenderAllPlayers() {
-            const { data: allPlayers } = await supabaseCall('bingo_players', 'GET');
+            const { data: allPlayers } = await supabaseCall('bingo_players', 'GET', null, '?order=updated_at.desc');
             if (!allPlayers || !Array.isArray(allPlayers)) return;
             const listContainer = document.getElementById('players-list'); listContainer.innerHTML = '';
             let hasOthers = false;
             
             allPlayers.forEach(p => {
-                if (p.user_id === userId) return; hasOthers = true;
+                if (p.user_id === userId) return; 
+                hasOthers = true;
                 const playerCard = document.createElement('div'); playerCard.classList.add('player-preview-card');
                 playerCard.innerHTML = `<div class="player-name">👤 ${p.name}</div>`;
                 const miniGrid = document.createElement('div'); miniGrid.classList.add('mini-grid');
@@ -199,8 +226,7 @@
                 if (remoteCard && Array.isArray(remoteCard)) {
                     remoteCard.forEach(cell => {
                         const miniCell = document.createElement('div'); miniCell.classList.add('mini-cell');
-                        if (cell.marked) miniCell.classList.add('marked'); 
-                        miniCell.title = `${p.name}: "${cell.text}"`;
+                        if (cell.marked) miniCell.classList.add('marked'); miniCell.title = `${p.name}: "${cell.text}"`;
                         miniGrid.appendChild(miniCell);
                     });
                 }
@@ -211,8 +237,7 @@
 
         function checkBingo(card) {
             if (!card || card.length < 25) return false;
-            // Die konkreten Linien-Indizes für ein 5x5 Raster (0 bis 24)
-            const lines = [, [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24], // Horizontal, [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24], // Vertikal, [4,8,12,16,20] // Diagonal
+            const lines = [, [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [15, 16, 17, 18, 19], [20, 21, 22, 23, 24], // Horizontal, [1, 6, 11, 16, 21], [2, 7, 12, 17, 22], [3, 8, 13, 18, 23], [4, 9, 14, 19, 24], // Vertikal, [4, 8, 12, 16, 20] // Diagonal
             ];
             return lines.some(line => line.every(idx => card[idx] && card[idx].marked));
         }
