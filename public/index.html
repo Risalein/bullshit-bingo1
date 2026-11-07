@@ -16,7 +16,6 @@
         button { width: 100%; padding: 14px; background: #fbc02d; color: #1e222b; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease; margin-bottom: 10px; }
         button:hover { background: #fdd835; transform: translateY(-1px); }
         
-        /* Obere Leiste im Spiel zum Wörter hinzufügen */
         .top-bar { background: #282c34; width: 100%; max-width: 1200px; padding: 15px 20px; border-radius: 12px; box-sizing: border-box; margin-bottom: 20px; border-left: 4px solid #fbc02d; display: flex; gap: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
         .top-bar-inputs { display: flex; gap: 10px; align-items: center; flex-grow: 1; max-width: 600px; }
         .top-bar input { margin: 0; padding: 10px; }
@@ -29,7 +28,7 @@
         .cell { aspect-ratio: 1; background: #282c34; border: 2px solid #3f4451; color: #eee; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 600; font-size: 0.8rem; padding: 6px; cursor: pointer; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.15s ease; word-break: break-word; }
         .cell:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); border-color: #fbc02d; }
         .cell.marked { background: #fbc02d; color: #1e222b; border-color: #fbc02d; font-weight: bold; }
-        .cell.free { background: #4f5b66; color: #fff; cursor: default; border-color: #4f5b66; }
+        
         .sidebar { flex: 1; min-width: 250px; background: #282c34; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 4px solid #5f6368; }
         .player-preview-card { margin-bottom: 20px; border-bottom: 1px solid #3f4451; padding-bottom: 15px; }
         .player-preview-card:last-child { border: none; }
@@ -37,15 +36,13 @@
         .mini-grid { display: grid; grid-template-columns: repeat(5, 16px); gap: 3px; }
         .mini-cell { width: 16px; height: 16px; background: #1e222b; border-radius: 3px; border: 1px solid #3f4451; }
         .mini-cell.marked { background: #fbc02d; border-color: #fbc02d; }
-        .mini-cell.free { background: #4f5b66; border-color: #4f5b66; }
     </style>
 </head>
 <body>
 
     <h1>Corporate Bingo 🎯</h1>
-    <p class="subtitle">Deine Haken und Karten bleiben beim Neuladen gesichert!</p>
+    <p class="subtitle">25 echte Begriffe — kein geschenktes Feld mehr!</p>
 
-    <!-- ANMELDUNG (Wird übersprungen, wenn bereits eingeloggt) -->
     <div id="login-screen" class="screen">
         <div class="stats" id="pool-stats">Lade Begriffs-Pool...</div>
         
@@ -54,7 +51,6 @@
         <button onclick="joinGame()">Dem Tages-Bingo beitreten</button>
     </div>
 
-    <!-- LIVE-LEISTE WÄHREND DES SPIELS (Für Begriffe zwischendurch) -->
     <div id="top-bar-container" class="top-bar hidden">
         <div style="font-size: 0.95rem; color: #fbc02d; font-weight: bold;" id="game-pool-counter">Pool: -</div>
         <div class="top-bar-inputs">
@@ -63,7 +59,6 @@
         </div>
     </div>
 
-    <!-- GAME SCREEN -->
     <div id="game-screen" class="game-container hidden">
         <div class="main-stage">
             <h2>Deine heutige Karte</h2>
@@ -79,7 +74,6 @@
     <script>
         const socket = io();
         
-        // Hole oder erstelle eine eindeutige, persistente User-ID für diesen Browser-Tab
         let userId = sessionStorage.getItem('bingo_user_id');
         if (!userId) {
             userId = 'user_' + Math.random().toString(36).substr(2, 9);
@@ -88,7 +82,6 @@
 
         let mySavedName = sessionStorage.getItem('bingo_user_name');
 
-        // Automatisch wiederbeitreten, wenn Name und ID bereits existieren
         socket.on('connect', () => {
             if (mySavedName) {
                 socket.emit('joinGame', { name: mySavedName, userId: userId });
@@ -149,12 +142,11 @@
                 const cellDiv = document.createElement('div');
                 cellDiv.classList.add('cell');
                 cellDiv.innerText = cell.text;
-                if (index === 12) {
-                    cellDiv.classList.add('free');
-                } else {
-                    if (cell.marked) cellDiv.classList.add('marked');
-                    cellDiv.onclick = () => sendClick(index);
-                }
+                
+                // Jedes Feld (auch Index 12) erhält nun die Klick-Funktionalität
+                if (cell.marked) cellDiv.classList.add('marked');
+                cellDiv.onclick = () => sendClick(index);
+                
                 grid.appendChild(cellDiv);
             });
         }
@@ -179,8 +171,7 @@
                 p.card.forEach((cell, index) => {
                     const miniCell = document.createElement('div');
                     miniCell.classList.add('mini-cell');
-                    if (index === 12) miniCell.classList.add('free');
-                    else if (cell.marked) miniCell.classList.add('marked');
+                    if (cell.marked) miniCell.classList.add('marked');
                     miniCell.title = `${p.name}: "${cell.text}"`; 
                     miniGrid.appendChild(miniCell);
                 });
