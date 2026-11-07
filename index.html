@@ -62,9 +62,13 @@
         </div>
     </div>
     <script>
+           <script>
         // SUPABASE KONFIGURATION
-        const SUPABASE_URL = "https://euqjzfqxqwcyllbzjwbj.supabase.co/rest/v1";
-        const SUPABASE_KEY = "sb_publishable_pAVVR0omhNP9UnXQ1P79Nw_xKghRlIh ";
+        let SUPABASE_URL = "https://euqjzfqxqwcyllbzjwbj.supabase.co/rest/v1/";
+        const SUPABASE_KEY = "sb_publishable_pAVVR0omhNP9UnXQ1P79Nw_xKghRlIh";
+
+        // Säubert die URL automatisch, falls am Ende ein "/" oder "/rest/v1" mitkopiert wurde
+        SUPABASE_URL = SUPABASE_URL.replace(/\/$/, "").replace(/\/rest\/v1$/, "");
 
         // Integrierter, blockierungsfreier Mini-Client für Supabase REST-API
         const supabaseCall = async (table, method = 'GET', body = null, query = '') => {
@@ -144,7 +148,7 @@
             sessionStorage.setItem('bingo_user_name', name);
             mySavedName = name;
             const { data } = await supabaseCall('bingo_players', 'GET', null, `?user_id=eq.${userId}`);
-            if (data && data.length > 0) { myCardData = data[0].card; } else {
+            if (data && data.length > 0) { myCardData = data.card; } else {
                 const { data: words } = await supabaseCall('bingo_words', 'GET', null, '?select=word');
                 let pool = (words && words.length >= 25) ? words.map(w => w.word) : [...backupWords];
                 pool.sort(() => Math.random() - 0.5);
@@ -157,7 +161,7 @@
 
         async function loadMyExistingGame() {
             const { data } = await supabaseCall('bingo_players', 'GET', null, `?user_id=eq.${userId}`);
-            if (data && data.length > 0) { myCardData = data[0].card; renderMyCard(); }
+            if (data && data.length > 0) { myCardData = data.card; renderMyCard(); }
         }
 
         function showGameScreen() {
@@ -184,7 +188,9 @@
         }
 
         async function fetchAndRenderAllPlayers() {
-            const { data: allPlayers } = await supabaseCall('bingo_players', 'GET'); if (!allPlayers) return;
+            const { data: allPlayers } = await supabaseCall('bingo_players', 'GET'); 
+            if (!allPlayers || !Array.isArray(allPlayers)) return; // Behebt den .forEach-Fehler bei Fehlgeschlagenen Abfragen
+            
             const listContainer = document.getElementById('players-list'); listContainer.innerHTML = '';
             let hasOthers = false;
             allPlayers.forEach(p => {
@@ -203,9 +209,9 @@
         }
 
         function checkBingo(card) {
-            const lines = [, [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24],
-, [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24],
-, [4,8,12,16,20]
+            const lines = [,,,,,
+,,,,,
+,
             ];
             return lines.some(line => line.every(index => card[index].marked));
         }
@@ -213,3 +219,4 @@
     </script>
 </body>
 </html>
+
