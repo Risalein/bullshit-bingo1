@@ -37,7 +37,7 @@
 </head>
 <body>
     <h1>VPFD Bullshit Bingo 🚨</h1>
-    <p class="subtitle">Fiebertraum to Go</p>
+    <p class="subtitle">Fiebertraum To Go</p>
     <div id="login-screen" class="screen">
         <div class="stats" id="pool-stats">Verbinde zur Cloud-Datenbank...</div>
         <label for="username">Dein Nickname für das Spiel:</label>
@@ -62,10 +62,11 @@
         </div>
     </div>
     <script>
+        // SUPABASE KONFIGURATION
         let SUPABASE_URL = "https://euqjzfqxqwcyllbzjwbj.supabase.co/rest/v1/";
         const SUPABASE_KEY = "sb_publishable_pAVVR0omhNP9UnXQ1P79Nw_xKghRlIh";
 
-         SUPABASE_URL = SUPABASE_URL.replace(/\/$/, "").replace(/\/rest\/v1$/, "");
+        SUPABASE_URL = SUPABASE_URL.replace(/\/$/, "").replace(/\/rest\/v1$/, "");
 
         const supabaseCall = async (table, method = 'GET', body = null, query = '') => {
             const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
@@ -158,6 +159,7 @@
 
         function renderMyCard() {
             const grid = document.getElementById('my-grid'); grid.innerHTML = '';
+            if (!myCardData || myCardData.length === 0) return;
             myCardData.forEach((cell, index) => {
                 const cellDiv = document.createElement('div'); cellDiv.classList.add('cell'); cellDiv.innerText = cell.text;
                 if (cell.marked) cellDiv.classList.add('marked');
@@ -186,10 +188,12 @@
         }
 
         function checkBingo(card) {
-            // HIER WURDEN DIE GEWINNLINIEN NUN KORREKT EINGETRAGEN
-            const lines = [, [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [15, 16, 17, 18, 19], [20, 21, 22, 23, 24], // Horizontal, [1, 6, 11, 16, 21], [2, 7, 12, 17, 22], [3, 8, 13, 18, 22], [4, 9, 14, 19, 24], // Vertikal, [4, 8, 12, 16, 20] // Diagonal
+            if (!card || card.length < 25) return false;
+            const lines = [, [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24],
+, [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24],
+, [4,8,12,16,20]
             ];
-            return lines.some(line => line.every(index => card[index] && card[index].marked));
+            return lines.some(line => line.every(idx => card[idx] && card[idx].marked));
         }
         init();
     </script>
