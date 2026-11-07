@@ -8,7 +8,6 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static('public'));
 
-// Speicher für alle Spieler im Spiel (wird über persistente IDs gehalten)
 let players = {};
 
 const defaultWords = [
@@ -17,7 +16,8 @@ const defaultWords = [
     "Mindset", "New Work", "Micro stumm!", "Customer Journey", "Benchmark", 
     "Quick Win", "Clustern", "Offline besprechen", "Outside the box", "Next Steps",
     "Fokus", "Mehrwert", "Win-Win", "Stakeholder", "Pipeline", "Skalieren", 
-    "Bottleneck", "Best Practice", "Framework", "Deliverables"
+    "Bottleneck", "Best Practice", "Framework", "Deliverables", "KPI-Review",
+    "Onboarding", "Roadmap", "Uplift", "Ready to go", "Meilenstein"
 ];
 
 let dynamicWords = [];
@@ -27,14 +27,9 @@ function generateIndividualCard() {
     combinedPool.sort(() => Math.random() - 0.5);
 
     let card = [];
-    let wordIndex = 0;
+    // Schleife läuft nun über alle 25 Felder ohne Ausnahme
     for (let i = 0; i < 25; i++) {
-        if (i === 12) {
-            card.push({ text: "☕ JOKER (FREE)", marked: true });
-        } else {
-            card.push({ text: combinedPool[wordIndex], marked: false });
-            wordIndex++;
-        }
+        card.push({ text: combinedPool[i] || `Ersatzwort ${i}`, marked: false });
     }
     return card;
 }
@@ -55,10 +50,8 @@ function setupDailyReset() {
 setupDailyReset();
 
 io.on('connection', (socket) => {
-    // Sende die aktuellen Pool-Zahlen an den frisch verbundenen Client
     socket.emit('wordCountUpdate', { total: [...new Set([...dynamicWords, ...defaultWords])].length, custom: dynamicWords.length });
 
-    // Event: Begriff einsenden
     socket.on('addCustomWord', (word) => {
         const cleanedWord = word.trim();
         if (!cleanedWord) return;
@@ -69,33 +62,26 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Event: Spiel beitreten oder wiederverbinden mit eindeutiger userId
     socket.on('joinGame', ({ name, userId }) => {
         if (!userId) return;
 
-        // Wenn der Spieler bereits existiert (z. B. nach einem Tab-Wechsel), behalten wir seine Karte!
-        if (players[userId]) {
-            // Aktualisiere nur den Namen, falls er geändert wurde
-            if (name) players[userId].name = name;
-        } else {
-            // Komplett neuer Spieler erhält eine neue Karte
+        if (!players[userId]) {
             players[userId] = {
                 name: name || `Spieler ${userId.slice(0,4)}`,
                 card: generateIndividualCard()
             };
+        } else if (name) {
+            players[userId].name = name;
         }
 
-        // Verknüpfe die aktuelle socket.id mit der userId für den Disconnect
         socket.userId = userId;
-
         io.emit('updatePlayers', players);
     });
 
-    // Event: Feld anklicken
     socket.on('clickCell', ({ cellIndex, userId }) => {
         if (!userId || !players[userId]) return;
-        if (cellIndex === 12) return;
 
+        // Die Sperre für Index 12 wurde entfernt. Jedes Feld schaltet nun den Zustand um.
         players[userId].card[cellIndex].marked = !players[userId].card[cellIndex].marked;
         let hasWon = checkBingo(players[userId].card);
         
@@ -106,16 +92,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
-        // Bei einem kurzen Verbindungsabbruch/Zurückgehen löschen wir den Spieler NICHT sofort,
-        // damit sein Zustand erhalten bleibt, wenn er gleich wiederkommt.
-        // Optionale Bereinigung könnte nach Inaktivität erfolgen.
-    });
+    socket.on('disconnect', () => {});
 });
 
 function checkBingo(card) {
-    const lines = [, [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24], // Horizontal, [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24], // Vertikal, [4,8,12,16,20] // Diagonal
-    ];
+    const lines = [,,,,, ,,,,, , ];
     return lines.some(line => line.every(index => card[index].marked));
 }
 
