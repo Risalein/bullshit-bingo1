@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Rettungsdienst & Funk Bingo 🚨</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1e222b; color: #f5f5f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #fbc02d; margin-bottom: 5px; font-size: 2.2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        h2, h3 { color: #fff; margin-top: 0; }
+        p.subtitle { color: #aaaaaa; margin-top: 0; margin-bottom: 25px; }
+        .screen { background: #282c34; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 550px; width: 100%; box-sizing: border-box; margin-bottom: 20px; border-top: 4px solid #fbc02d; }
+        .hidden { display: none !important; }
+        label { font-weight: bold; color: #fbc02d; display: block; margin-bottom: 6px; }
+        input { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 2px solid #3f4451; background: #1e222b; color: #fff; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        input:focus { border-color: #fbc02d; outline: none; }
+        button { width: 100%; padding: 14px; background: #fbc02d; color: #1e222b; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease; margin-bottom: 10px; }
+        button:hover { background: #fdd835; transform: translateY(-1px); }
+        
+        .top-bar { background: #282c34; width: 100%; max-width: 1200px; padding: 15px 20px; border-radius: 12px; box-sizing: border-box; margin-bottom: 20px; border-left: 4px solid #fbc02d; display: flex; gap: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+        .top-bar-inputs { display: flex; gap: 10px; align-items: center; flex-grow: 1; max-width: 600px; }
+        .top-bar input { margin: 0; padding: 10px; }
+        .top-bar button { margin: 0; padding: 10px 20px; width: auto; font-size: 0.95rem; white-space: nowrap; }
+        
+        .stats { font-size: 0.85rem; color: #aaaaaa; text-align: center; margin-bottom: 15px; background: #1e222b; padding: 8px; border-radius: 6px; border: 1px solid #3f4451; }
+        .game-container { display: flex; gap: 30px; max-width: 1200px; width: 100%; align-items: flex-start; justify-content: center; }
+        .main-stage { flex: 2; min-width: 320px; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 15px; }
+        .cell { aspect-ratio: 1; background: #282c34; border: 2px solid #3f4451; color: #eee; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 600; font-size: 0.8rem; padding: 6px; cursor: pointer; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.15s ease; word-break: break-word; }
+        .cell:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); border-color: #fbc02d; }
+        .cell.marked { background: #fbc02d; color: #1e222b; border-color: #fbc02d; font-weight: bold; }
+        
+        .sidebar { flex: 1; min-width: 250px; background: #282c34; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 4px solid #5f6368; }
+        .player-preview-card { margin-bottom: 20px; border-bottom: 1px solid #3f4451; padding-bottom: 15px; }
+        .player-preview-card:last-child { border: none; }
+        .player-name { font-weight: bold; margin-bottom: 8px; color: #fbc02d; display: flex; align-items: center; gap: 6px; }
+        .mini-grid { display: grid; grid-template-columns: repeat(5, 16px); gap: 3px; }
+        .mini-cell { width: 16px; height: 16px; background: #1e222b; border-radius: 3px; border: 1px solid #3f4451; }
+        .mini-cell.marked { background: #fbc02d; border-color: #fbc02d; }
+    </style>
+
+    <!-- Supabase CDN einbinden -->
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body>
+
+    <h1>Rettungsdienst & Funk Bingo 🚨</h1>
+    <p class="subtitle">Echtzeit-Synchronisation über Cloud-Datenbank</p>
+
+    <div id="login-screen" class="screen">
+        <div class="stats" id="pool-stats">Verbinde zur Cloud-Datenbank...</div>
+        <label for="username">Dein Nickname für das Spiel:</label>
+        <input type="text" id="username" placeholder="z.B. Captain Buzzword" required>
+        <button onclick="joinGame()">Dem Tages-Bingo beitreten</button>
+    </div>
+
+    <div id="top-bar-container" class="top-bar hidden">
+        <div style="font-size: 0.95rem; color: #fbc02d; font-weight: bold;" id="game-pool-counter">Pool: -</div>
+        <div class="top-bar-inputs">
+            <input type="text" id="live-new-word" placeholder="Begriff zwischendurch einwerfen...">
+            <button onclick="submitLiveWord()">🚀 Einsenden</button>
+        </div>
+    </div>
+
+    <div id="game-screen" class="game-container hidden">
+        <div class="main-stage">
+            <h2>Deine heutige Karte</h2>
+            <div class="grid" id="my-grid"></div>
+        </div>
+        <div class="sidebar">
+            <h3 style="color:#aaaaaa;">Mitspieler Live</h3>
+            <div id="players-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // SUPABASE KONFIGURATION - HIER DEINE DATEN EINTRAGEN!
+        const SUPABASE_URL = "HIER_DEINE_SUPABASE_URL_EINTRAGEN";
+        const SUPABASE_KEY = "HIER_DEINEN_ANON_PUBLIC_KEY_EINTRAGEN";
+        
+        const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        let userId = sessionStorage.getItem('bingo_user_id') || 'user_' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('bingo_user_id', userId);
+        
+        let mySavedName = sessionStorage.getItem('bingo_user_name');
+        let myCardData = [];
+
+        // Beim Starten die Verbindung aufbauen
+        async function init() {
+            await updateWordCount();
+            setupRealtimeSubscriptions();
+            
+            if (mySavedName) {
+                await loadMyExistingGame();
+                showGameScreen();
+            }
+        }
+
+        async function updateWordCount() {
+            const { count, error } = await supabase.from('bingo_words').select('*', { count: 'exact', head: true });
+            if (!error && document.getElementById('pool-stats')) {
+                const text = `📦 Pool: ${count} Begriffe in der Cloud hinterlegt`;
+                document.getElementById('pool-stats').innerText = text;
+                document.getElementById('game-pool-counter').innerText = text;
+            }
+        }
+
+        async function submitLiveWord() {
+            const input = document.getElementById('live-new-word');
+            const word = input.value.trim();
+            if (!word) return alert("Bitte gib einen Begriff ein!");
+            
+            const { error } = await supabase.from('bingo_words').insert([{ word: word }]);
+            input.value = '';
+            if (error && error.code === "23505") alert("Dieser Begriff existiert bereits!");
+            else alert(`✔ "${word}" wurde der Cloud-Datenbank hinzugefügt!`);
+        }
+
+        async function joinGame() {
+            const name = document.getElementById('username').value.trim();
+            if (!name) return alert("Bitte gib einen Namen ein!");
+            
+            sessionStorage.setItem('bingo_user_name', name);
+            mySavedName = name;
+
+            // Prüfen, ob Spieler für heute schon eine Karte in Supabase hat
+            const { data } = await supabase.from('bingo_players').select('*').eq('user_id', userId).maybeSingle();
+            
+            if (data) {
+                myCardData = data.card;
+            } else {
+                // Hole alle Wörter aus der Datenbank und mische 25 für die Karte
+                const { data: words } = await supabase.from('bingo_words').select('word');
+                let pool = words.map(w => w.word).sort(() => Math.random() - 0.5);
+                
+                myCardData = [];
+                for (let i = 0; i < 25; i++) {
+                    myCardData.push({ text: pool[i] || `Ersatz ${i}`, marked: false });
+                }
+
+                await supabase.from('bingo_players').upsert({ user_id: userId, name: name, card: myCardData, updated_at: new Date() });
+            }
+
+            showGameScreen();
+            fetchAndRenderAllPlayers();
+        }
+
+        async function loadMyExistingGame() {
+            const { data } = await supabase.from('bingo_players').select('*').eq('user_id', userId).maybeSingle();
+            if (data) {
+                myCardData = data.card;
+                renderMyCard();
+            }
+        }
+
+        function showGameScreen() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('top-bar-container').classList.remove('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            renderMyCard();
+            fetchAndRenderAllPlayers();
+        }
+
+        async function sendClick(index) {
+            myCardData[index].marked = !myCardData[index].marked;
+            renderMyCard();
+
+            // Spielstand in Supabase aktualisieren
+            await supabase.from('bingo_players').upsert({ user_id: userId, name: mySavedName, card: myCardData, updated_at: new Date() });
+
+            if (checkBingo(myCardData)) {
+                alert("🎉 BINGO! Du hast gewonnen! Informiere deine Mitspieler!");
+            }
+        }
+
+        function renderMyCard() {
+            const grid = document.getElementById('my-grid');
+            grid.innerHTML = '';
+            myCardData.forEach((cell, index) => {
+                const cellDiv = document.createElement('div');
+                cellDiv.classList.add('cell');
+                cellDiv.innerText = cell.text;
+                if (cell.marked) cellDiv.classList.add('marked');
+                cellDiv.onclick = () => sendClick(index);
+                grid.appendChild(cellDiv);
+              });
+          }
+          async function fetchAndRenderAllPlayers() {
+                  const { data: allPlayers } = await supabase.from('bingo_players').select('*');
+                  if (!allPlayers) return;
+                  const listContainer = document.getElementById('players-list');
+                  listContainer.innerHTML = '';
+                  let hasOthers = false;
+                  allPlayers.forEach(p => {
+                  if (p.user_id === userId) return;
+                  hasOthers = true;
+                  const playerCard = document.createElement('div');
+                  playerCard.classList.add('player-preview-card');
+                  playerCard.innerHTML = <div class="player-name">👤 ${p.name}</div>;
+                  const miniGrid = document.createElement('div');
+                  miniGrid.classList.add('mini-grid');
+                  p.card.forEach(cell => {
+                  const miniCell = document.createElement('div');
+                  miniCell.classList.add('mini-cell');
+                  if (cell.marked) miniCell.classList.add('marked');
+                  miniCell.title = ${p.name}: "${cell.text}";
+                  miniGrid.appendChild(miniCell);
+                });
+              playerCard.appendChild(miniGrid);
+              listContainer.appendChild(playerCard);
+                });
+                  if (!hasOthers) {
+                  listContainer.innerHTML = 'Warten auf weitere Kollegen...';
+            }
+            }
+// Echtzeit-Änderungen von Supabase abfangen (Ersetzt Socket.io)
+            function setupRealtimeSubscriptions() {
+// Höre auf neue Wörter
+            supabase.channel('public:bingo_words')
+                  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bingo_words' }, () => {
+                  updateWordCount();
+                  }).subscribe();
+// Höre auf Klicks und Updates der Mitspieler
+            supabase.channel('public:bingo_players')
+                  .on('postgres_changes', { event: '*', schema: 'public', table: 'bingo_players' }, () => {
+                  fetchAndRenderAllPlayers();
+                  }).subscribe();
+            }
+                  function checkBingo(card) {
+                  const lines = [, [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24], // Horizontal, [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24], // Vertikal, [4,8,12,16,20] // Diagonal
+];
+                  return lines.some(line => line.every(index => card[index].marked));
+}
+// Starten
+                  init();
