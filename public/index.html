@@ -21,7 +21,6 @@
         .cell { aspect-ratio: 1; background: #282c34; border: 2px solid #3f4451; color: #eee; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 600; font-size: 0.8rem; padding: 6px; cursor: pointer; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.15s ease; word-break: break-word; }
         .cell:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); border-color: #fbc02d; }
         .cell.marked { background: #fbc02d; color: #1e222b; border-color: #fbc02d; font-weight: bold; }
-        .cell.free { background: #4f5b66; color: #fff; cursor: default; border-color: #4f5b66; }
         .sidebar { flex: 1; min-width: 250px; background: #282c34; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 4px solid #5f6368; }
         .player-preview-card { margin-bottom: 20px; border-bottom: 1px solid #3f4451; padding-bottom: 15px; }
         .player-preview-card:last-child { border: none; }
@@ -29,7 +28,6 @@
         .mini-grid { display: grid; grid-template-columns: repeat(5, 16px); gap: 3px; }
         .mini-cell { width: 16px; height: 16px; background: #1e222b; border-radius: 3px; border: 1px solid #3f4451; }
         .mini-cell.marked { background: #fbc02d; border-color: #fbc02d; }
-        .mini-cell.free { background: #4f5b66; border-color: #4f5b66; }
     </style>
 </head>
 <body>
@@ -88,12 +86,10 @@
                 const cellDiv = document.createElement('div');
                 cellDiv.classList.add('cell');
                 cellDiv.innerText = cell.text;
-                if (index === 12) {
-                    cellDiv.classList.add('free');
-                } else {
-                    if (cell.marked) cellDiv.classList.add('marked');
-                    cellDiv.onclick = () => sendClick(index);
-                }
+                
+                if (cell.marked) cellDiv.classList.add('marked');
+                cellDiv.onclick = () => sendClick(index);
+                
                 grid.appendChild(cellDiv);
             });
         }
@@ -117,9 +113,10 @@
                 p.card.forEach((cell, index) => {
                     const miniCell = document.createElement('div');
                     miniCell.classList.add('mini-cell');
-                    if (index === 12) miniCell.classList.add('free');
-                    else if (cell.marked) miniCell.classList.add('marked');
+                    
+                    if (cell.marked) miniCell.classList.add('marked');
                     miniCell.title = `${p.name}: "${cell.text}"`; 
+                    
                     miniGrid.appendChild(miniCell);
                 });
                 playerCard.appendChild(miniGrid);
